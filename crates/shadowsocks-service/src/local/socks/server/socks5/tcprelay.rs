@@ -10,14 +10,7 @@ use log::{debug, error, trace, warn};
 use shadowsocks::{
     config::Mode,
     relay::socks5::{
-        self,
-        Address,
-        Command,
-        Error as Socks5Error,
-        HandshakeRequest,
-        HandshakeResponse,
-        Reply,
-        TcpRequestHeader,
+        self, Address, Command, Error as Socks5Error, HandshakeRequest, HandshakeResponse, Reply, TcpRequestHeader,
         TcpResponseHeader,
     },
     ServerAddr,
@@ -26,10 +19,7 @@ use tokio::net::TcpStream;
 
 use crate::{
     local::{
-        context::ServiceContext,
-        loadbalancing::PingBalancer,
-        net::AutoProxyClientStream,
-        utils::establish_tcp_tunnel,
+        context::ServiceContext, loadbalancing::PingBalancer, net::AutoProxyClientStream, utils::establish_tcp_tunnel,
     },
     net::utils::ignore_until_end,
 };
@@ -146,15 +136,9 @@ impl Socks5TcpHandler {
         let svr_cfg = server.server_config();
 
         let mut remote = match AutoProxyClientStream::connect(self.context.clone(), &server, &target_addr).await {
-            Ok(remote) => {
-                // Tell the client that we are ready
-                let header =
-                    TcpResponseHeader::new(socks5::Reply::Succeeded, Address::SocketAddress(remote.local_addr()?));
-                header.write_to(&mut stream).await?;
-
-                trace!("sent header: {:?}", header);
-
-                remote
+            Ok(mut remote) => {
+                establish_tcp_tunnel(svr_cfg, &mut stream, &mut remote, peer_addr, &target_addr).await;
+                return Ok(());
             }
             Err(err) => {
                 let reply = match err.kind() {
@@ -170,8 +154,6 @@ impl Socks5TcpHandler {
                 return Err(err);
             }
         };
-
-        establish_tcp_tunnel(svr_cfg, &mut stream, &mut remote, peer_addr, &target_addr).await
     }
 
     async fn handle_udp_associate(self, mut stream: TcpStream, client_addr: Address) -> io::Result<()> {

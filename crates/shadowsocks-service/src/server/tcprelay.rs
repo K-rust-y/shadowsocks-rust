@@ -13,11 +13,10 @@ use shadowsocks::{
     crypto::v1::CipherKind,
     net::{AcceptOpts, TcpStream as OutboundTcpStream},
     relay::{
-        socks5::{Address, Error as Socks5Error},
+        socks5::{self, Address, Error as Socks5Error, TcpResponseHeader},
         tcprelay::{utils::copy_encrypted_bidirectional, ProxyServerStream},
     },
-    ProxyListener,
-    ServerConfig,
+    ProxyListener, ServerConfig,
 };
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -111,8 +110,8 @@ impl TcpServerClient {
             Ok(a) => a,
             Err(Socks5Error::IoError(ref err)) if err.kind() == ErrorKind::UnexpectedEof => {
                 debug!(
-                    "handshake failed, received EOF before a complete target Address, peer: {}",
-                    self.peer_addr
+                    "handshake failed, received EOF before a complete target Address, peer: {}, err: {:?}",
+                    self.peer_addr, err
                 );
                 return Ok(());
             }
@@ -176,6 +175,10 @@ impl TcpServerClient {
                 return Err(err);
             }
         };
+
+        // Warn client tcp connection is up and running
+        let header = TcpResponseHeader::new(socks5::Reply::Succeeded, Address::SocketAddress(self.peer_addr));
+        header.write_to(&mut self.stream).await?;
 
         // https://github.com/shadowsocks/shadowsocks-rust/issues/232
         //

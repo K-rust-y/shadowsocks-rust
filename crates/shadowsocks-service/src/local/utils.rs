@@ -9,7 +9,10 @@ use std::{
 use log::{debug, trace};
 use shadowsocks::{
     config::ServerConfig,
-    relay::{socks5::Address, tcprelay::utils::copy_encrypted_bidirectional},
+    relay::{
+        socks5::{self, Address, TcpResponseHeader},
+        tcprelay::utils::copy_encrypted_bidirectional,
+    },
 };
 use tokio::{
     io::{copy_bidirectional, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
